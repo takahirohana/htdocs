@@ -1,18 +1,19 @@
 <?php
+  require_once('dbc.php');
   session_start();
   $mode = 'input';
   $errmessage = array();
-  if( isset($_POST['back']) && $_POST['bacd'] ){
+  if( isset($_POST['back']) && $_POST['back'] ){
     //　何もしない
   } else if( isset($_POST['confirm']) && $_POST['confirm'] ){
-    if( !$_POST['fullname'] ) {
+    if( !$_POST['name'] ) {
       $errmessage[] = "氏名を入力してください";
-    } else if( mb_strlen($_POST['fullname']) > 40 ){
+    } else if( mb_strlen($_POST['name']) > 40 ){
       $errmessage[] = "氏名は40文字以内にしてください";
-    } if(!preg_match('/^[[ァ-ン]|ー]+$/u', $_POST['fullname'])){
-      $errmessage[] = "カタカナのみ";
+    } if(!preg_match('/^[[ァ-ン]|ー]+$/u', $_POST['name'])){
+      $errmessage[] = "氏名はカタカナのみにしてください";
     }
-    $_SESSION['fullname'] = htmlspecialchars($_POST['fullname'], ENT_QUOTES);
+    $_SESSION['name'] = htmlspecialchars($_POST['name'], ENT_QUOTES);
 
     if( !$_POST['email'] ) {
       $errmessage[] = "Eメールを入力してください";
@@ -31,50 +32,38 @@
     
   } else if( isset($_POST['send']) && $_POST['send']) {
     $message = "登録完了いたしました。\r\n"
-              . "名前: " . $_SESSION['fullname'] . "\r\n"
+              . "名前: " . $_SESSION['name'] . "\r\n"
               . "email: " . $_SESSION['email'] . "\r\n";
     mail($_SESSION['email'], '登録ありがとうございます。', $message);
     $mode = 'send';
   } else {
-    $_SESSION['fullname'] = "";
+    $_SESSION['name'] = "";
     $_SESSION['email']    = "";
   }
+
+  $users = $_SESSION;
+
+$sql = 'INSERT INTO
+          user(name, email)
+        VALUES
+          (:name, :email)';
+
+$dbh = dbConnect();
+$dbh->beginTransaction();
+
+try {
+    $stmt = $dbh->prepare($sql);
+    $stmt->bindValue(':name',$users['name'],PDO::PARAM_STR);
+    $stmt->bindValue(':email',$users['email'],PDO::PARAM_STR);
+    $stmt->execute();
+    $dbh->commit();
+} catch(PDOException $e){
+    $dbh->rollBack();
+    exit($e);
+}
 ?>
 
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-  <meta charset="utf-8">
-  <title>新規登録画面</title>
-</head>
-<body>
-  <?php if( $mode == 'input' ) { ?>
-    <?php
-      if( $errmessage ){
-        echo '<div style="color:red;">';
-        echo implode('<br>', $errmessage );
-        echo '</div>';
-      }
-    ?>
+<?php
 
-    <form action="./registration.php" method="post">
-    （全角カナ　氏名間スペース必須）<br>氏名　　<input type="text" name="fullname" value="<?php echo $_SESSION['fullname'] ?>"><br>
-    （半角英数字）<br>
-    E メール<input type="email" name="email" value="<?php echo $_SESSION['email'] ?>"><br>
-    <input type ="submit" name="confirm" value=" 確認">
-    <input type ="submit" name="back" value="リセット">
-    </form>
-    
-  <?php } else if( $mode == 'confirm') { ?>
-    <form action="./registration.php" method="post">
-      氏名　　  <?php echo $_SESSION['fullname'] ?><br>
-      E メール　<?php echo $_SESSION['email'] ?><br>
-      <input type="submit" name="back" value="修正">
-      <input type="submit" name="send" value="完了">
-    </form>
-  <?php } else { ?>
-      ご登録完了致しました。<br>
-  <?php } ?>
-    
-</body>
-</html>
+require_once("signup.php");
+?>
